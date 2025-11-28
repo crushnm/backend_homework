@@ -139,6 +139,13 @@ uv run python -m unittest discover tests
 
 测试包含链式集成测试，验证完整的用户流程。
 
+### black格式化工具
+```bash
+#检查格式化
+uv run black --check src tests
+#进行black格式化
+uv run black src tests
+```
 
 ### Docker 部署
 

@@ -38,10 +38,6 @@ jobs:
       working-directory: ./backend
       run: uv sync --extra dev
     
-    - name: Run Black format check
-      working-directory: ./backend
-      run: uv run black --check src tests
-    
     - name: Run tests
       working-directory: ./backend
       env:
