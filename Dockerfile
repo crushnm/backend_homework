@@ -22,7 +22,7 @@ COPY backend/.env.example ./.env
 
 
 # 安装Python依赖（使用完整路径确保找到uv）
-RUN /root/.local/bin/uv sync --no-dev
+RUN uv sync --no-dev
 
 # 复制前端静态文件
 COPY frontend ./static
@@ -31,4 +31,4 @@ COPY frontend ./static
 EXPOSE 8000
 
 # 启动命令（使用完整路径）
-CMD ["/root/.local/bin/uv", "run", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
