@@ -10,18 +10,22 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装UV并设置PATH
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.local/bin:${PATH}"
+RUN pip install --upgrade pip && pip install uv
 
 # 复制项目文件
 COPY backend/pyproject.toml backend/uv.lock* ./
 
+#复制源代码(必须在安装依赖前完成，因为本地包需要这些文件)
+COPY backend/src ./src
+COPY backend/README.md ./README.md
+COPY backend/.env.example ./.env
+
+
 # 安装Python依赖（使用完整路径确保找到uv）
 RUN /root/.local/bin/uv sync --no-dev
 
-# 复制源代码
-COPY backend/src ./src
-COPY backend/.env.example ./.env
+# 复制前端静态文件
+COPY frontend ./static
 
 # 暴露端口
 EXPOSE 8000

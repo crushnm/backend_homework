@@ -109,20 +109,8 @@ uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 后端API将在 http://localhost:8000 运行
+通过访问http://localhost:8000/static/index.html访问网站首页
 
-### 5. 访问前端
-
-在浏览器中打开 `frontend/index.html` 或使用简单的HTTP服务器：
-
-```bash
-# Python
-python -m http.server 8080 --directory frontend
-
-# 或使用 Node.js
-npx serve frontend
-```
-
-前端将在 http://localhost:8080 运行
 
 ## API 文档
 
@@ -160,4 +148,4 @@ docker-compose logs -f
 docker-compose down
 ```
 
-Docker部署会自动启动PostgreSQL和后端服务，前端可通过 http://localhost:8000/static 访问。
+Docker部署会自动启动PostgreSQL和后端服务，前端可通过 http://localhost:8000/static/index.html 访问。
