@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # PostgreSQL数据库
+  db:
+    image: postgres:15-alpine
+    container_name: contoso_db
+    environment:
+      POSTGRES_DB: contoso_expense
+      POSTGRES_USER: contoso_user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contoso_user -d contoso_expense"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 后端API
+  backend:
+    build: .
+    container_name: contoso_backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://contoso_user:password@db/contoso_expense
+      SECRET_KEY: your-secret-key-change-this-in-production-min-32-chars
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/src
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

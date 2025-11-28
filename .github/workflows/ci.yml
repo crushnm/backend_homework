@@ -1,0 +1,63 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: contoso_expense_test
+          POSTGRES_USER: contoso_user
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install UV
+      run: curl -LsSf https://astral.sh/uv/install.sh | sh
+    
+    - name: Add UV to PATH
+      run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    
+    - name: Install dependencies
+      working-directory: ./backend
+      run: uv sync
+    
+    - name: Run Black format check
+      working-directory: ./backend
+      run: uv run black --check src tests
+    
+    - name: Run tests
+      working-directory: ./backend
+      env:
+        DATABASE_URL: postgresql+asyncpg://contoso_user:password@localhost/contoso_expense_test
+        SECRET_KEY: test-secret-key-for-ci-pipeline
+      run: uv run python -m unittest discover tests
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Build Docker image
+      run: docker build -t contoso-expense-tracker .
+    
+    - name: Test Docker Compose
+      run: docker-compose config

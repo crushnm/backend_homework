@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contoso 报销系统 - 登录</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container login-container">
+        <h1 style="text-align: center; margin-bottom: 30px;">Contoso 报销系统</h1>
+        
+        <div id="loginForm">
+            <h2>登录 / 注册</h2>
+            <form id="authForm">
+                <div class="form-group">
+                    <label for="email">邮箱</label>
+                    <input type="email" id="email" required placeholder="your.email@contoso.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <input type="password" id="password" required placeholder="输入密码">
+                </div>
+                
+                <div id="registerFields" style="display: none;">
+                    <div class="form-group">
+                        <label for="username">用户名</label>
+                        <input type="text" id="username" placeholder="输入用户名">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="role">角色</label>
+                        <select id="role">
+                            <option value="employee">员工</option>
+                            <option value="employer">雇主</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="width: 100%;">登录 / 注册</button>
+                
+                <div id="message" style="margin-top: 15px;"></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        
+        document.getElementById('authForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const messageDiv = document.getElementById('message');
+            
+            messageDiv.innerHTML = '<div class="loading">处理中...</div>';
+            
+            try {
+                // 先尝试登录
+                const loginResponse = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                if (loginResponse.ok) {
+                    const data = await loginResponse.json();
+                    localStorage.setItem('token', data.access_token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    messageDiv.innerHTML = '<div class="success">登录成功！跳转中...</div>';
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 1000);
+                } else {
+                    const error = await loginResponse.json();
+                    
+                    // 如果是未注册用户，显示注册字段
+                    if (error.detail.includes('not registered')) {
+                        document.getElementById('registerFields').style.display = 'block';
+                        messageDiv.innerHTML = '<div class="error">邮箱未注册，请填写用户名和角色完成注册</div>';
+                        
+                        // 修改表单提交为注册
+                        document.getElementById('authForm').onsubmit = async (e) => {
+                            e.preventDefault();
+                            await handleRegister();
+                        };
+                    } else {
+                        messageDiv.innerHTML = `<div class="error">${error.detail}</div>`;
+                    }
+                }
+            } catch (error) {
+                messageDiv.innerHTML = '<div class="error">网络错误，请检查后端服务是否运行</div>';
+                console.error('Error:', error);
+            }
+        });
+        
+        async function handleRegister() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const username = document.getElementById('username').value;
+            const role = document.getElementById('role').value;
+            const messageDiv = document.getElementById('message');
+            
+            if (!username) {
+                messageDiv.innerHTML = '<div class="error">请输入用户名</div>';
+                return;
+            }
+            
+            messageDiv.innerHTML = '<div class="loading">注册中...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, username, role })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('token', data.access_token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    messageDiv.innerHTML = '<div class="success">注册成功！跳转中...</div>';
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 1000);
+                } else {
+                    const error = await response.json();
+                    messageDiv.innerHTML = `<div class="error">${error.detail}</div>`;
+                }
+            } catch (error) {
+                messageDiv.innerHTML = '<div class="error">网络错误</div>';
+                console.error('Error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

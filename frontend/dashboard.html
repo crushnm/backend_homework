@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contoso 报销系统 - 票据管理</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>报销票据管理</h1>
+            <div class="user-info">
+                <span class="user-badge" id="userBadge"></span>
+                <button class="btn btn-secondary" onclick="logout()">退出登录</button>
+            </div>
+        </div>
+
+        <div class="nav" id="navigation"></div>
+
+        <div id="employeeSection">
+            <button class="btn btn-primary" onclick="openCreateModal()">+ 创建报销票据</button>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>员工</th>
+                        <th>消费日期</th>
+                        <th>金额</th>
+                        <th>描述</th>
+                        <th>消费人员</th>
+                        <th>购买链接</th>
+                        <th>状态</th>
+                        <th id="actionHeader" style="display: none;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="ticketsTable">
+                    <tr><td colspan="9" class="loading">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 创建票据模态框 -->
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>创建报销票据</h2>
+                <button class="close-btn" onclick="closeCreateModal()">&times;</button>
+            </div>
+            <form id="createTicketForm">
+                <div class="form-group">
+                    <label for="expenseDate">消费日期</label>
+                    <input type="datetime-local" id="expenseDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="amount">金额</label>
+                    <input type="number" id="amount" step="0.01" min="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">描述</label>
+                    <textarea id="description" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="personnel">消费人员</label>
+                    <input type="text" id="personnel" required>
+                </div>
+                <div class="form-group">
+                    <label for="purchaseLink">购买链接（可选）</label>
+                    <input type="url" id="purchaseLink">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">提交</button>
+                <div id="createMessage" style="margin-top: 15px;"></div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let currentUser = null;
+
+        // 检查登录状态
+        function checkAuth() {
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            if (!token || !user) {
+                window.location.href = 'index.html';
+                return;
+            }
+            
+            currentUser = JSON.parse(user);
+            document.getElementById('userBadge').textContent = 
+                `${currentUser.username} (${currentUser.role === 'employer' ? '雇主' : '员工'})`;
+            
+            // 根据角色显示导航
+            const nav = document.getElementById('navigation');
+            if (currentUser.role === 'employer') {
+                nav.innerHTML = `
+                    <button class="btn btn-primary" onclick="window.location.href='dashboard.html'">票据列表</button>
+                    <button class="btn btn-secondary" onclick="window.location.href='employees.html'">员工管理</button>
+                `;
+                document.getElementById('actionHeader').style.display = 'table-cell';
+                document.getElementById('employeeSection').style.display = 'none';
+            } else {
+                nav.innerHTML = '';
+            }
+            
+            loadTickets();
+        }
+
+        // 加载票据列表
+        async function loadTickets() {
+            const token = localStorage.getItem('token');
+            const tbody = document.getElementById('ticketsTable');
+            
+            try {
+                const response = await fetch(`${API_BASE}/tickets`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const tickets = await response.json();
+                    
+                    if (tickets.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="9" class="empty-state">暂无票据</td></tr>';
+                        return;
+                    }
+                    
+                    tbody.innerHTML = tickets.map(ticket => `
+                        <tr>
+                            <td>${ticket.id}</td>
+                            <td>${ticket.user.username}</td>
+                            <td>${new Date(ticket.expense_date).toLocaleString('zh-CN')}</td>
+                            <td>¥${ticket.amount.toFixed(2)}</td>
+                            <td>${ticket.description}</td>
+                            <td>${ticket.personnel}</td>
+                            <td>${ticket.purchase_link ? `<a href="${ticket.purchase_link}" target="_blank">查看</a>` : '-'}</td>
+                            <td><span class="status-badge status-${ticket.status}">${getStatusText(ticket.status)}</span></td>
+                            ${currentUser.role === 'employer' ? `
+                                <td>
+                                    ${ticket.status === 'pending' ? `
+                                        <button class="btn btn-success" style="padding: 5px 10px; margin-right: 5px;" 
+                                                onclick="updateTicketStatus(${ticket.id}, 'approved')">批准</button>
+                                        <button class="btn btn-danger" style="padding: 5px 10px;" 
+                                                onclick="updateTicketStatus(${ticket.id}, 'rejected')">驳回</button>
+                                    ` : '-'}
+                                </td>
+                            ` : ''}
+                        </tr>
+                    `).join('');
+                } else if (response.status === 401) {
+                    logout();
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="9" class="error">加载失败</td></tr>';
+                }
+            } catch (error) {
+                tbody.innerHTML = '<tr><td colspan="9" class="error">网络错误</td></tr>';
+                console.error('Error:', error);
+            }
+        }
+
+        // 更新票据状态
+        async function updateTicketStatus(ticketId, status) {
+            const token = localStorage.getItem('token');
+            
+            try {
+                const response = await fetch(`${API_BASE}/tickets/${ticketId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status })
+                });
+                
+                if (response.ok) {
+                    loadTickets();
+                } else {
+                    alert('操作失败');
+                }
+            } catch (error) {
+                alert('网络错误');
+                console.error('Error:', error);
+            }
+        }
+
+        // 打开创建模态框
+        function openCreateModal() {
+            document.getElementById('createModal').classList.add('active');
+            // 设置默认日期为当前时间
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('expenseDate').value = now.toISOString().slice(0, 16);
+        }
+
+        // 关闭创建模态框
+        function closeCreateModal() {
+            document.getElementById('createModal').classList.remove('active');
+            document.getElementById('createTicketForm').reset();
+            document.getElementById('createMessage').innerHTML = '';
+        }
+
+        // 创建票据
+        document.getElementById('createTicketForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const token = localStorage.getItem('token');
+            const messageDiv = document.getElementById('createMessage');
+            
+            const ticketData = {
+                expense_date: new Date(document.getElementById('expenseDate').value).toISOString(),
+                amount: parseFloat(document.getElementById('amount').value),
+                description: document.getElementById('description').value,
+                personnel: document.getElementById('personnel').value,
+                purchase_link: document.getElementById('purchaseLink').value || null
+            };
+            
+            messageDiv.innerHTML = '<div class="loading">提交中...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/tickets`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(ticketData)
+                });
+                
+                if (response.ok) {
+                    messageDiv.innerHTML = '<div class="success">创建成功！</div>';
+                    setTimeout(() => {
+                        closeCreateModal();
+                        loadTickets();
+                    }, 1000);
+                } else {
+                    const error = await response.json();
+                    messageDiv.innerHTML = `<div class="error">${error.detail}</div>`;
+                }
+            } catch (error) {
+                messageDiv.innerHTML = '<div class="error">网络错误</div>';
+                console.error('Error:', error);
+            }
+        });
+
+        function getStatusText(status) {
+            const statusMap = {
+                'pending': '待审批',
+                'approved': '已批准',
+                'rejected': '已驳回'
+            };
+            return statusMap[status] || status;
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = 'index.html';
+        }
+
+        // 页面加载时检查认证
+        checkAuth();
+    </script>
+</body>
+</html>

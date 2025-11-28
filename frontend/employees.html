@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contoso 报销系统 - 员工管理</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>员工管理</h1>
+            <div class="user-info">
+                <span class="user-badge" id="userBadge"></span>
+                <button class="btn btn-secondary" onclick="logout()">退出登录</button>
+            </div>
+        </div>
+
+        <div class="nav">
+            <button class="btn btn-secondary" onclick="window.location.href='dashboard.html'">票据列表</button>
+            <button class="btn btn-primary" onclick="window.location.href='employees.html'">员工管理</button>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>用户名</th>
+                        <th>邮箱</th>
+                        <th>角色</th>
+                        <th>状态</th>
+                        <th>注册时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="employeesTable">
+                    <tr><td colspan="7" class="loading">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let currentUser = null;
+
+        // 检查登录状态和权限
+        function checkAuth() {
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            if (!token || !user) {
+                window.location.href = 'index.html';
+                return;
+            }
+            
+            currentUser = JSON.parse(user);
+            
+            // 只有雇主可以访问此页面
+            if (currentUser.role !== 'employer') {
+                alert('只有雇主可以访问此页面');
+                window.location.href = 'dashboard.html';
+                return;
+            }
+            
+            document.getElementById('userBadge').textContent = 
+                `${currentUser.username} (雇主)`;
+            
+            loadEmployees();
+        }
+
+        // 加载员工列表
+        async function loadEmployees() {
+            const token = localStorage.getItem('token');
+            const tbody = document.getElementById('employeesTable');
+            
+            try {
+                const response = await fetch(`${API_BASE}/employees`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const employees = await response.json();
+                    
+                    if (employees.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">暂无员工</td></tr>';
+                        return;
+                    }
+                    
+                    tbody.innerHTML = employees.map(emp => `
+                        <tr>
+                            <td>${emp.id}</td>
+                            <td>${emp.username}</td>
+                            <td>${emp.email}</td>
+                            <td>${emp.role === 'employer' ? '雇主' : '员工'}</td>
+                            <td>
+                                <span class="status-badge ${emp.is_active ? 'active-badge' : 'inactive-badge'}">
+                                    ${emp.is_active ? '激活' : '已暂停'}
+                                </span>
+                            </td>
+                            <td>${new Date(emp.created_at).toLocaleString('zh-CN')}</td>
+                            <td>
+                                ${emp.id !== currentUser.id ? `
+                                    ${emp.is_active ? `
+                                        <button class="btn btn-danger" style="padding: 5px 10px;" 
+                                                onclick="updateEmployeeStatus(${emp.id}, false)">暂停</button>
+                                    ` : `
+                                        <button class="btn btn-success" style="padding: 5px 10px;" 
+                                                onclick="updateEmployeeStatus(${emp.id}, true)">激活</button>
+                                    `}
+                                ` : '<span style="color: #999;">当前用户</span>'}
+                            </td>
+                        </tr>
+                    `).join('');
+                } else if (response.status === 401) {
+                    logout();
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="7" class="error">加载失败</td></tr>';
+                }
+            } catch (error) {
+                tbody.innerHTML = '<tr><td colspan="7" class="error">网络错误</td></tr>';
+                console.error('Error:', error);
+            }
+        }
+
+        // 更新员工状态
+        async function updateEmployeeStatus(userId, isActive) {
+            const token = localStorage.getItem('token');
+            const action = isActive ? '激活' : '暂停';
+            
+            if (!confirm(`确定要${action}该员工吗？${!isActive ? '暂停后该员工将无法登录，其票据将被隐藏。' : ''}`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/employees/${userId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ is_active: isActive })
+                });
+                
+                if (response.ok) {
+                    alert(`${action}成功`);
+                    loadEmployees();
+                } else {
+                    const error = await response.json();
+                    alert(`操作失败: ${error.detail}`);
+                }
+            } catch (error) {
+                alert('网络错误');
+                console.error('Error:', error);
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = 'index.html';
+        }
+
+        // 页面加载时检查认证
+        checkAuth();
+    </script>
+</body>
+</html>
