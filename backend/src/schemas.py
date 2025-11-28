@@ -1,7 +1,7 @@
 """Pydantic schemas for request/response validation"""
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel,EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from .models import UserRole, TicketStatus
 
 
@@ -9,7 +9,6 @@ from .models import UserRole, TicketStatus
 class UserBase(BaseModel):
     email: EmailStr
     username: str
-    
 
 
 class UserCreate(BaseModel):
@@ -51,7 +50,7 @@ class TicketBase(BaseModel):
 
 
 class TicketCreate(TicketBase):
-    @field_validator('expense_date')
+    @field_validator("expense_date")
     @classmethod
     def remove_timezone(cls, v: datetime) -> datetime:
         """移除时区信息，确保与数据库兼容"""

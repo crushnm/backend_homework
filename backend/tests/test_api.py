@@ -13,9 +13,7 @@ TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 # 创建测试引擎
 test_engine = create_async_engine(
-    TEST_DATABASE_URL, 
-    echo=False,
-    connect_args={"check_same_thread": False}
+    TEST_DATABASE_URL, echo=False, connect_args={"check_same_thread": False}
 )
 TestSessionLocal = async_sessionmaker(
     test_engine, class_=AsyncSession, expire_on_commit=False
@@ -77,7 +75,7 @@ class TestExpenseTrackerAPI(unittest.TestCase):
                 "email": "employee@contoso.com",
                 "password": "employee123",
                 "username": "Test Employee",
-                "role": UserRole.EMPLOYEE.value
+                "role": UserRole.EMPLOYEE.value,
             }
             response = await client.post("/api/auth/register", json=employee_data)
             self.assertEqual(response.status_code, 201)
@@ -89,7 +87,7 @@ class TestExpenseTrackerAPI(unittest.TestCase):
                 "email": "employer@contoso.com",
                 "password": "employer123",
                 "username": "Test Employer",
-                "role": UserRole.EMPLOYER.value
+                "role": UserRole.EMPLOYER.value,
             }
             response = await client.post("/api/auth/register", json=employer_data)
             self.assertEqual(response.status_code, 201)
@@ -97,10 +95,7 @@ class TestExpenseTrackerAPI(unittest.TestCase):
             employer_id = response.json()["user"]["id"]
 
             # 3. 员工登录
-            login_data = {
-                "email": "employee@contoso.com",
-                "password": "employee123"
-            }
+            login_data = {"email": "employee@contoso.com", "password": "employee123"}
             response = await client.post("/api/auth/login", json=login_data)
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json()["user"]["email"], "employee@contoso.com")
@@ -111,10 +106,12 @@ class TestExpenseTrackerAPI(unittest.TestCase):
                 "amount": 150.50,
                 "description": "Office supplies",
                 "personnel": "Test Employee",
-                "purchase_link": "https://example.com/order/123"
+                "purchase_link": "https://example.com/order/123",
             }
             headers = {"Authorization": f"Bearer {employee_token}"}
-            response = await client.post("/api/tickets", json=ticket_data, headers=headers)
+            response = await client.post(
+                "/api/tickets", json=ticket_data, headers=headers
+            )
             self.assertEqual(response.status_code, 201)
             ticket_id = response.json()["id"]
             self.assertEqual(response.json()["status"], TicketStatus.PENDING.value)
@@ -136,9 +133,7 @@ class TestExpenseTrackerAPI(unittest.TestCase):
             # 7. 雇主审批票据
             update_data = {"status": TicketStatus.APPROVED.value}
             response = await client.patch(
-                f"/api/tickets/{ticket_id}",
-                json=update_data,
-                headers=employer_headers
+                f"/api/tickets/{ticket_id}", json=update_data, headers=employer_headers
             )
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json()["status"], TicketStatus.APPROVED.value)
@@ -161,13 +156,13 @@ class TestExpenseTrackerAPI(unittest.TestCase):
                 if emp["email"] == "employee@contoso.com":
                     employee_id = emp["id"]
                     break
-            
+
             self.assertIsNotNone(employee_id)
             suspend_data = {"is_active": False}
             response = await client.patch(
                 f"/api/employees/{employee_id}",
                 json=suspend_data,
-                headers=employer_headers
+                headers=employer_headers,
             )
             self.assertEqual(response.status_code, 200)
             self.assertFalse(response.json()["is_active"])
@@ -179,7 +174,11 @@ class TestExpenseTrackerAPI(unittest.TestCase):
             # 12. 验证被暂停员工的票据被软删除
             response = await client.get("/api/tickets", headers=employer_headers)
             self.assertEqual(response.status_code, 200)
-            visible_tickets = [t for t in response.json() if t["user"]["email"] == "employee@contoso.com"]
+            visible_tickets = [
+                t
+                for t in response.json()
+                if t["user"]["email"] == "employee@contoso.com"
+            ]
             self.assertEqual(len(visible_tickets), 0)
 
             # 13. 雇主重新激活员工
@@ -187,7 +186,7 @@ class TestExpenseTrackerAPI(unittest.TestCase):
             response = await client.patch(
                 f"/api/employees/{employee_id}",
                 json=activate_data,
-                headers=employer_headers
+                headers=employer_headers,
             )
             self.assertEqual(response.status_code, 200)
             self.assertTrue(response.json()["is_active"])
@@ -199,7 +198,11 @@ class TestExpenseTrackerAPI(unittest.TestCase):
             # 15. 验证票据恢复可见
             response = await client.get("/api/tickets", headers=employer_headers)
             self.assertEqual(response.status_code, 200)
-            visible_tickets = [t for t in response.json() if t["user"]["email"] == "employee@contoso.com"]
+            visible_tickets = [
+                t
+                for t in response.json()
+                if t["user"]["email"] == "employee@contoso.com"
+            ]
             self.assertGreater(len(visible_tickets), 0)
 
     def test_02_authorization(self):
@@ -215,7 +218,7 @@ class TestExpenseTrackerAPI(unittest.TestCase):
                 "email": "employee2@contoso.com",
                 "password": "password123",
                 "username": "Employee 2",
-                "role": UserRole.EMPLOYEE.value
+                "role": UserRole.EMPLOYEE.value,
             }
             response = await client.post("/api/auth/register", json=employee_data)
             employee_token = response.json()["access_token"]
@@ -227,7 +230,9 @@ class TestExpenseTrackerAPI(unittest.TestCase):
 
             # 员工尝试审批票据（应该失败）
             update_data = {"status": TicketStatus.APPROVED.value}
-            response = await client.patch("/api/tickets/1", json=update_data, headers=headers)
+            response = await client.patch(
+                "/api/tickets/1", json=update_data, headers=headers
+            )
             self.assertEqual(response.status_code, 403)
 
 

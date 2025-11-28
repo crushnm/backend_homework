@@ -8,7 +8,7 @@ load_dotenv()
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+asyncpg://contoso_user:password@localhost/contoso_expense"
+    "postgresql+asyncpg://contoso_user:password@localhost/contoso_expense",
 )
 
 engine = create_async_engine(DATABASE_URL, echo=True, future=True)

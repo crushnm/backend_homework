@@ -21,7 +21,7 @@ async def create_user(db: AsyncSession, user: UserCreate) -> User:
         email=user.email,
         username=user.username,
         hashed_password=hashed_password,
-        role=user.role
+        role=user.role,
     )
     db.add(db_user)
     await db.commit()
@@ -35,14 +35,16 @@ async def get_all_users(db: AsyncSession) -> List[User]:
     return result.scalars().all()
 
 
-async def update_user_status(db: AsyncSession, user_id: int, is_active: bool) -> Optional[User]:
+async def update_user_status(
+    db: AsyncSession, user_id: int, is_active: bool
+) -> Optional[User]:
     """更新用户激活状态"""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    
+
     if user:
         user.is_active = is_active
-        
+
         # 如果用户被暂停，软删除其所有票据
         if not is_active:
             tickets_result = await db.execute(
@@ -59,10 +61,10 @@ async def update_user_status(db: AsyncSession, user_id: int, is_active: bool) ->
             tickets = tickets_result.scalars().all()
             for ticket in tickets:
                 ticket.is_deleted = False
-        
+
         await db.commit()
         await db.refresh(user)
-    
+
     return user
 
 
@@ -74,12 +76,12 @@ async def create_ticket(db: AsyncSession, ticket: TicketCreate, user_id: int) ->
         amount=ticket.amount,
         description=ticket.description,
         personnel=ticket.personnel,
-        purchase_link=ticket.purchase_link
+        purchase_link=ticket.purchase_link,
     )
     db.add(db_ticket)
     await db.commit()
     await db.refresh(db_ticket)
-    
+
     # 加载关联的用户信息
     await db.refresh(db_ticket, ["user"])
     return db_ticket
@@ -108,9 +110,7 @@ async def get_all_tickets(db: AsyncSession) -> List[Ticket]:
 
 
 async def update_ticket_status(
-    db: AsyncSession, 
-    ticket_id: int, 
-    status: TicketStatus
+    db: AsyncSession, ticket_id: int, status: TicketStatus
 ) -> Optional[Ticket]:
     """更新票据状态（审批/驳回）"""
     result = await db.execute(
@@ -119,10 +119,10 @@ async def update_ticket_status(
         .where(Ticket.id == ticket_id, Ticket.is_deleted == False)
     )
     ticket = result.scalar_one_or_none()
-    
+
     if ticket:
         ticket.status = status
         await db.commit()
         await db.refresh(ticket)
-    
+
     return ticket
