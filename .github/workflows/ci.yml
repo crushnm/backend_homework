@@ -56,4 +56,4 @@ jobs:
       run: docker build -t contoso-expense-tracker .
     
     - name: Test Docker Compose
-      run: docker-compose config
+      run: docker compose config

@@ -139,13 +139,13 @@ uv run black src tests
 
 ```bash
 # 构建并启动所有服务
-docker-compose up -d
+docker compose up -d
 
 # 查看日志
-docker-compose logs -f
+docker compose logs -f
 
 # 停止服务
-docker-compose down
+docker compose down
 ```
 
 Docker部署会自动启动PostgreSQL和后端服务，前端可通过 http://localhost:8000/static/index.html 访问。
